@@ -1,0 +1,42 @@
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Python Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Data & Database Storage
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/chroma_db/*
+!data/chroma_db/.gitkeep
+
+# Machine Learning & NLP Model Artifacts (reproducible from scripts)
+backend/app/ml/artifacts/*
+!backend/app/ml/artifacts/.gitkeep
+backend/app/nlp/artifacts/*
+!backend/app/nlp/artifacts/.gitkeep
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# OS Specific
+.DS_Store
+Thumbs.db

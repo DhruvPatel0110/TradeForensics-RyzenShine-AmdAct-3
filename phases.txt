@@ -1,0 +1,370 @@
+================================================================================
+TRADEFORENSICS — DETAILED PHASE-BY-PHASE EXECUTION PLAN
+================================================================================
+Project: TradeForensics | Team: RyzenShine
+Hackathon: AMD Developer Hackathon ACT III (Track 3: Reinvent Commerce)
+Target Freeze Date: 17 October 2026 | Deadline: 18 October 2026, 8:30 PM IST
+Primary Dev Stack: Python 3.11+, FastAPI, LightGBM, Scikit-learn, ChromaDB, 
+                   Sentence-Transformers, React + Vite, Groq API (Free Tier)
+================================================================================
+
+ALGORITHM SELECTION (FIXATED & FINALIZED):
+1. Tabular ML (Dissatisfaction Risk & Driver Attribution):
+   - Model: LightGBM Classifier (LGBMClassifier)
+   - Explainability: Tree Feature Importance (gain/split) + TreeSHAP
+   - Target: Binary flag `is_low_score` (1 if review_score <= 2, else 0)
+   - Features: delay_days, transit_days, freight_ratio, product_volume_cm3, 
+               product_weight_g, is_interstate, item_price, complaint_topic_tag
+2. NLP Text Classification (Review Root-Cause Categorization):
+   - Model: TfidfVectorizer (Portuguese stopwords, ngram_range=(1,2), max_features=5000) 
+            + Multiclass LogisticRegression(class_weight='balanced', max_iter=1000)
+   - Classes (4):
+     * DELIVERY_DELAY ("atraso", "demorou", "prazo", "nao chegou")
+     * DAMAGED_DEFECTIVE ("quebrado", "defeito", "estragado", "pessima qualidade")
+     * CATALOG_MISMATCH ("tamanho errado", "cor diferente", "veio errado", "propaganda enganosa")
+     * SERVICE_REFUND ("nao respondem", "cancelamento", "estorno", "atendimento péssimo")
+3. Semantic Vector Search (Qualitative RAG):
+   - Embedding Model: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+     (Multilingual dense 384-d vectors, native Portuguese support, runs CPU/local)
+   - Vector Store: ChromaDB (Local persistent sqlite/parquet, zero cloud cost)
+4. LLM Operational Reasoning (Action Copilot):
+   - Primary Free Provider: Groq API (model: llama-3.3-70b-versatile or llama-3.1-8b-instant)
+     (Generous free tier, sub-second latency, strict JSON object output mode)
+   - AMD Hardware Bridge: Pluggable adapter in backend configuration allowing 1-line 
+     toggle to Fireworks/AMD Instinct (`LLM_PROVIDER=groq` -> `LLM_PROVIDER=fireworks`)
+
+================================================================================
+PHASE 0: ENVIRONMENT, TOOLING & BASELINE VERIFICATION
+================================================================================
+[x] Task 0.1: Directory Scaffolding
+    - Create directory structure:
+      backend/app/{api, core, data, ml, nlp, rag, llm, services}
+      frontend/src/{components, pages, services, styles}
+      data/{raw, processed, chroma_db}
+      docs/
+      scripts/
+    - Output: Complete folder hierarchy matching project layout.
+
+[x] Task 0.2: Backend Dependency Specification & Virtual Environment (.venv)
+    - Create `requirements.txt` with exact pinned versions:
+      fastapi, uvicorn, pydantic, pydantic-settings, python-dotenv,
+      pandas, numpy, pyarrow, scikit-learn, lightgbm, shap,
+      chromadb, sentence-transformers,
+      groq, httpx, pytest
+    - Create dedicated Python virtual environment (`python -m venv .venv`) to isolate
+      ML/RAG dependencies, prevent system pollution, and ensure clean deployment.
+    - Run pip install within `.venv` and verify clean installation with zero conflicts.
+    - Output: Clean, isolated `.venv` with all backend dependencies ready.
+
+[x] Task 0.3: Environment Security & Configuration
+    - Create `.env.example` with placeholders:
+      GROQ_API_KEY=gsk_...
+      FIREWORKS_API_KEY=
+      LLM_PROVIDER=groq
+      GROQ_MODEL=llama-3.3-70b-versatile
+      DATA_DIR=./data
+      CHROMA_PERSIST_DIR=./data/chroma_db
+    - Create `.gitignore` ignoring `.env`, `data/raw/`, `data/chroma_db/`, `__pycache__/`, `node_modules/`.
+    - Output: Secure config files in place; secrets cannot leak to Git.
+
+[x] Task 0.4: Free Groq LLM Adapter & Connectivity Smoke Test
+    - Implement `backend/app/llm/client.py` using official `groq` Python SDK.
+    - Implement `scripts/test_groq_connection.py` that makes 1 test call requesting a JSON object.
+    - Run the script with user's free Groq API key and assert valid JSON is returned.
+    - Output: Verified sub-second LLM connectivity at zero cost.
+
+================================================================================
+PHASE 1: DATASET INGESTION, CLEANING & GRAIN SAFETY
+================================================================================
+[x] Task 1.1: Dataset Download & Ingestion Verification
+    - Acquire Kaggle Olist CSV files into `data/raw/`:
+      * olist_orders_dataset.csv
+      * olist_order_items_dataset.csv
+      * olist_order_reviews_dataset.csv
+      * olist_products_dataset.csv
+      * product_category_name_translation.csv
+      * olist_sellers_dataset.csv
+      * olist_customers_dataset.csv
+    - Write `scripts/verify_raw_data.py` to check presence, row counts, and null columns.
+    - Output: Validated raw CSV files in local directory (452,368 total rows).
+
+[x] Task 1.2: Text & Category Cleaning Pipeline
+    - Implement `backend/app/data/cleaner.py`:
+      * Strip Portuguese diacritics using `unicodedata.normalize('NFKD')`.
+      * Lowercase and clean whitespace in text reviews.
+      * Join Portuguese categories with English translations; map missing to "other_unclassified".
+      * Separate empty reviews from commented reviews (~40k reviews with full text).
+    - Output: Clean category mappings and normalized text review series.
+
+[x] Task 1.3: Aggregation & Order-Level Safe Join
+    - Implement `backend/app/data/loader.py`:
+      * Aggregate items to order level (sum price, sum freight, count items, primary seller).
+      * Merge orders with aggregated items, customers, sellers, products, and reviews.
+      * Validate that total row count equals unique order count (prevent row explosion).
+      * Calculate calculated fields:
+        `delay_days = max(0, (delivered_date - estimated_date).days)`
+        `transit_days = (delivered_date - purchase_date).days`
+        `freight_ratio = freight_value / (price + freight_value)`
+        `is_interstate = int(customer_state != seller_state)`
+        `is_low_score = int(review_score <= 2)`
+    - Save processed analytical dataset to `data/processed/orders_analytical.parquet`.
+    - Output: Reproducible, deduplicated tabular analytical file (98,666 unique orders).
+
+================================================================================
+PHASE 2: DETERMINISTIC KPI ENGINE & ISSUE DETECTION
+================================================================================
+[x] Task 2.1: Store-Wide Global KPI Calculator
+    - Implement `backend/app/services/kpi_service.py`:
+      * Store total order count, delivered order count, cancelled order count.
+      * Store global baseline late-delivery rate (%).
+      * Store global average delay days on late shipments.
+      * Store global low-score rate (% reviews <= 2 stars) and average review score.
+    - Output: Deterministic baseline metrics dictionary for the merchant dashboard.
+
+[x] Task 2.2: Segmented Metrics (Category & Seller Level)
+    - Implement grouping calculations with sample size guards ($N \ge 50$ reviews):
+      * Metric per product category: total orders, late rate, low score rate, delay days.
+      * Metric per seller: total orders, late rate, low score rate, delay days.
+      * Calculate baseline delta: `delta = segment_metric - global_baseline`.
+    - Output: Structured dataframe of category and seller health metrics.
+
+[x] Task 2.3: Issue Detection & Ranking Rule Engine
+    - Implement `backend/app/services/issue_detector.py`:
+      * Formulate transparent ranking score:
+        `severity_score = (low_score_delta * 0.6 + late_delivery_delta * 0.4) * log10(sample_size)`
+      * Filter and sort top 5 critical merchant operational issues.
+      * Tag issue type: `LOGISTICS_BOTTLENECK` vs `CATEGORY_SATISFACTION_DROP`.
+    - Output: Ranked list of top operational friction points ready for API consumption.
+
+[x] Task 2.4: Deterministic KPI Unit Tests
+    - Implement `backend/tests/test_kpis.py` with pytest:
+      * Test late delivery math with known timestamps.
+      * Test baseline delta calculations.
+      * Test sample size filter threshold.
+      * Test category & seller level aggregations.
+    - Output: All tests passing (6/6 unit tests passing in pytest).
+
+================================================================================
+PHASE 3: NLP PIPELINE — COMPLAINT CLASSIFIER
+================================================================================
+[ ] Task 3.1: Portuguese Text Preprocessing & Labeling Rules
+    - Implement `backend/app/nlp/preprocessor.py`:
+      * Download/integrate Portuguese stopwords list.
+      * Create keyword lexicon for 4 operational complaint classes:
+        DELIVERY_DELAY, DAMAGED_DEFECTIVE, CATALOG_MISMATCH, SERVICE_REFUND.
+      * Create bootstrap labeled dataset from review text using keyword anchors.
+    - Output: Preprocessed, tokenized text dataframe with initial target labels.
+
+[ ] Task 3.2: Train TF-IDF + Logistic Regression Classifier
+    - Implement `backend/app/nlp/train_topic_model.py`:
+      * Vectorize text using `TfidfVectorizer(max_features=5000, ngram_range=(1, 2))`.
+      * Fit `LogisticRegression(class_weight='balanced', max_iter=1000)`.
+      * Evaluate classification report (Precision, Recall, F1 per class).
+      * Save model and vectorizer artifacts to `backend/app/nlp/artifacts/`.
+    - Output: Trained, persistent Portuguese complaint classifier.
+
+[ ] Task 3.3: Score Reviews & Topic Distribution Aggregation
+    - Run topic classifier over all ~40,000 text reviews.
+    - Attach predicted `complaint_topic` and prediction confidence to each review record.
+    - Save updated dataset with NLP tags to `data/processed/reviews_with_topics.parquet`.
+    - Output: Every text review tagged with its operational root cause.
+
+================================================================================
+PHASE 4: TABULAR ML — DISSATISFACTION RISK & DRIVER ANALYSIS
+================================================================================
+[ ] Task 4.1: Feature Matrix Preparation
+    - Implement `backend/app/ml/feature_builder.py`:
+      * Construct features: `delay_days`, `transit_days`, `freight_ratio`, `price`,
+        `freight_value`, `product_weight_g`, `product_volume_cm3`, `is_interstate`,
+        one-hot encoded `complaint_topic`.
+      * Target: `is_low_score` (binary 0/1).
+      * Split into 80% train / 20% test sets with stratified sampling.
+    - Output: Clean feature matrices `X_train`, `X_test`, `y_train`, `y_test`.
+
+[ ] Task 4.2: Train LightGBM Classifier
+    - Implement `backend/app/ml/train_risk_model.py`:
+      * Train `LGBMClassifier(n_estimators=150, learning_rate=0.05, max_depth=6, random_state=42)`.
+      * Calculate test ROC-AUC score, Precision, Recall, and F1 score.
+      * Save trained model artifact to `backend/app/ml/artifacts/lgbm_risk_model.pkl`.
+    - Output: High-accuracy, fast tabular risk prediction model.
+
+[ ] Task 4.3: Feature Importance & Driver Attribution Engine
+    - Implement `backend/app/ml/driver_explainer.py`:
+      * Extract global feature importance percentages based on split and gain.
+      * Implement function `get_segment_drivers(category_or_seller_df)`:
+        Calculates normalized importance weights for specific issue segments.
+        (e.g., "In Category X, Delay Days explains 58% of negative variance, Freight: 25%").
+    - Output: Function returning structured feature driver breakdown for any segment.
+
+================================================================================
+PHASE 5: SEMANTIC VECTOR STORE (CHROMADB RAG)
+================================================================================
+[ ] Task 5.1: Initialize Local ChromaDB Store
+    - Implement `backend/app/rag/vector_store.py`:
+      * Initialize persistent local Chroma client in `data/chroma_db/`.
+      * Create collection: `olist_customer_reviews`.
+      * Configure embedding function using `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`.
+    - Output: Initialized local vector database collection.
+
+[ ] Task 5.2: Ingest & Index Text Reviews
+    - Implement `backend/app/rag/indexer.py`:
+      * Batch-index reviews with text comments (focus on review_score <= 2).
+      * Include metadata with each document:
+        `category`, `seller_id`, `review_score`, `delay_days`, `complaint_topic`.
+      * Run indexer script with progress bar.
+    - Output: Fully indexed vector database with semantic Portuguese search capability.
+
+[ ] Task 5.3: Semantic Retrieval Engine
+    - Implement `backend/app/rag/retriever.py`:
+      * Function `get_representative_complaints(category: str, top_k: int = 4)`:
+        Queries ChromaDB filtered by category and score <= 2, searching for
+        semantic topic probes ("atraso entrega embalagem quebrado defeito").
+      * Returns top 4 sanitized, clean customer quotes with metadata.
+    - Output: Working semantic retrieval function returning authentic customer quotes.
+
+================================================================================
+PHASE 6: HYBRID EVIDENCE ASSEMBLER & GROQ COPILOT
+================================================================================
+[ ] Task 6.1: Evidence Packet Assembler
+    - Implement `backend/app/services/evidence_assembler.py`:
+      * For any selected issue ID:
+        1. Fetch deterministic SQL KPIs (sample size, late rate, low review share, delta).
+        2. Fetch LightGBM risk score and top 3 feature drivers (% importance).
+        3. Fetch ChromaDB top 4 authentic semantic customer quotes.
+      * Package into a standardized Python dictionary (`EvidencePacket`).
+    - Output: Bounded, un-hallucinated quantitative + qualitative evidence packet.
+
+[ ] Task 6.2: System Prompt & Pydantic Output Schema
+    - Implement `backend/app/llm/schemas.py` defining Pydantic models:
+      * `ActionPlanResponse`: summary, severity, ml_risk_assessment, quantitative_evidence,
+        qualitative_evidence, recommended_actions (action, rationale, effort, expected_effect),
+        limitations.
+    - Implement `backend/app/llm/prompts.py`:
+      * Enforce evidence grounding: LLM is strictly prohibited from calculating numbers.
+      * Must cite evidence metrics provided in the packet.
+      * Format response as a strict JSON object.
+    - Output: Robust schema and anti-hallucination system prompt.
+
+[ ] Task 6.3: Groq LLM Copilot Service
+    - Implement `backend/app/services/copilot_service.py`:
+      * Call Groq API (`llama-3.3-70b-versatile`) with `response_format={"type": "json_object"}`.
+      * Validate response against Pydantic `ActionPlanResponse` schema.
+      * Implement deterministic fallback in case of API timeout/rate limit.
+    - Output: Complete, end-to-end action plan generator returning verified JSON.
+
+================================================================================
+PHASE 7: FASTAPI BACKEND API IMPLEMENTATION
+================================================================================
+[ ] Task 7.1: App Scaffolding & Middleware
+    - Implement `backend/app/main.py`:
+      * Setup FastAPI app with CORS middleware (allow local React dev server).
+      * Lifespan handler to load analytical data, ML model, and ChromaDB client on startup.
+      * Endpoint `GET /api/health`: returns API status, dataset row count, LLM provider.
+    - Output: Running FastAPI application on `http://localhost:8000`.
+
+[ ] Task 7.2: Overview & Issues Endpoints
+    - Implement `backend/app/api/overview.py`:
+      * `GET /api/overview`: Returns store-wide KPI cards, delay distributions.
+    - Implement `backend/app/api/issues.py`:
+      * `GET /api/issues`: Returns list of top detected operational friction points.
+      * `GET /api/issues/{issue_id}/evidence`: Returns the assembled Evidence Packet.
+    - Output: Operational dashboard data served via REST API.
+
+[ ] Task 7.3: Copilot Action Plan Endpoint
+    - Implement `backend/app/api/copilot.py`:
+      * `POST /api/action-plan`: Accepts issue ID, generates & returns the grounded plan.
+      * `POST /api/ask`: Handles custom natural language questions over evidence packets.
+    - Output: Working copilot endpoints ready for frontend consumption.
+
+[ ] Task 7.4: Backend Integration Smoke Tests
+    - Implement `backend/tests/test_api.py`:
+      * Test `/api/health` returns 200.
+      * Test `/api/overview` returns valid structure.
+      * Test `/api/issues` returns non-empty list.
+      * Test `/api/action-plan` returns valid schema.
+    - Output: All API endpoints verified and passing tests.
+
+================================================================================
+PHASE 8: REACT + VITE FRONTEND DASHBOARD
+================================================================================
+[ ] Task 8.1: Frontend Scaffolding & Design Foundation
+    - Initialize React app using Vite: `npm create vite@latest frontend -- --template react`.
+    - Setup modern dark/light styling system with vanilla CSS / design tokens:
+      * HSL color palette (deep slate, violet accent, emerald success, amber alert).
+      * Typography (Inter / Outfit font family).
+      * Responsive container layouts.
+    - Output: Running Vite frontend with professional commerce aesthetic.
+
+[ ] Task 8.2: Store Health View (Page 1)
+    - Implement `frontend/src/pages/StoreHealth.jsx`:
+      * KPI Cards: Total Orders, Late Delivery Rate, Low Rating Share, Health Score.
+      * Delay Distribution Chart (histogram / bar chart).
+      * High-priority alert banner pointing to detected friction points.
+    - Output: Polished high-level store executive view.
+
+[ ] Task 8.3: Issue Explorer View (Page 2)
+    - Implement `frontend/src/pages/IssueExplorer.jsx`:
+      * Interactive issue table sorted by severity score.
+      * Category and seller filters.
+      * Selected issue detail drawer:
+        - Deterministic KPI comparison vs baseline.
+        - LightGBM Driver Attribution bar chart.
+        - Authentic customer complaint quotes carousel.
+    - Output: Deep-dive operational issue investigation screen.
+
+[ ] Task 8.4: Copilot Action Plan Modal / View (Page 3)
+    - Implement `frontend/src/components/ActionPlanViewer.jsx`:
+      * One-click "Generate AI Action Plan" button with loading animation.
+      * Executive diagnosis card.
+      * Prioritized action checklist with effort badges (Low/Medium/High).
+      * Data citations and limitations drawer.
+    - Output: Fully interactive AI Copilot interface.
+
+[ ] Task 8.5: Frontend-Backend Wiring & Error Handling
+    - Implement `frontend/src/services/api.js` using fetch/axios.
+    - Wire all screens to FastAPI endpoints.
+    - Add graceful loading skeletons, error toasts, and offline fallbacks.
+    - Output: Seamless, fully interactive end-to-end web application.
+
+================================================================================
+PHASE 9: AMD HARDWARE ADAPTATION & EVIDENCE DOCUMENTATION
+================================================================================
+[ ] Task 9.1: Fireworks / AMD Instinct Adapter Verification
+    - Implement `backend/app/llm/fireworks_client.py`:
+      * Connects to Fireworks AI OpenAI-compatible endpoint.
+      * Add environment switch in `config.py` (`LLM_PROVIDER="fireworks"`).
+    - Output: 100% plug-and-play readiness for AMD Instinct GPU credits.
+
+[ ] Task 9.2: AMD Workload Evidence Document
+    - Create `docs/amd-workload-evidence.md`:
+      * Document architecture showing AMD Instinct inference pipeline.
+      * Provide direct ROCm deployment blueprint (Docker container recipe for AMD ROCm).
+      * Log sample inference requests, token latency, and hardware specs.
+    - Output: Comprehensive AMD compliance proof for hackathon judges.
+
+================================================================================
+PHASE 10: SUBMISSION ASSETS & POLISH
+================================================================================
+[ ] Task 10.1: Repository Documentation & README
+    - Write professional `README.md`:
+      * Project overview, problem statement, and live demo link.
+      * Architecture diagram (Hybrid ML + Semantic RAG).
+      * Clear 3-step setup instructions (`pip install`, `npm run dev`).
+      * ML & NLP methodology explanation.
+    - Output: Clean, judge-ready public GitHub repository.
+
+[ ] Task 10.2: Demo Video Script & Recording
+    - Draft 2–3 minute video script:
+      1. The Problem (20s): Store managers drowning in disconnected data.
+      2. Store Health Dashboard (30s): Pointing out live KPIs and baseline anomalies.
+      3. Deep Dive (40s): LightGBM feature drivers + ChromaDB real customer quotes.
+      4. Copilot Action Plan (45s): Live LLM plan generation with cited evidence.
+      5. AMD Architecture & Value (25s): How AMD infrastructure powers the workflow.
+    - Record and produce demo video.
+    - Output: Final demo video asset ready for submission.
+
+[ ] Task 10.3: Presentation Slide Deck & Final Submission
+    - Prepare 5–7 pitch slides (Problem, Solution, Architecture, ML/RAG Innovation, Business Impact).
+    - Complete submission form on Lablab.ai before freeze deadline.
+    - Output: Final hackathon submission confirmed.
+================================================================================
