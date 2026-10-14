@@ -12,6 +12,7 @@
 **Submission Deadline:** 18 October 2026, 8:30 PM IST (Hard freeze target: 17 October 2026)  
 **Development Workflow:** Antigravity locally + GitHub repository  
 **Environment Isolation:** Dedicated Python Virtual Environment (`.venv`) for backend isolation to prevent global package conflicts and ensure pristine deployment dependencies.  
+**Git Policy:** Strictly NO git commits or git pushes. All development work, code, models, and data artifacts must remain 100% local on disk.  
 
 ---
 

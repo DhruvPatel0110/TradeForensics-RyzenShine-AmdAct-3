@@ -7,6 +7,9 @@ Target Freeze Date: 17 October 2026 | Deadline: 18 October 2026, 8:30 PM IST
 Primary Dev Stack: Python 3.11+, FastAPI, LightGBM, Scikit-learn, ChromaDB, 
                    Sentence-Transformers, React + Vite, Groq API (Free Tier)
 ================================================================================
+CRITICAL DIRECTIVE: DO NOT RUN GIT COMMIT OR GIT PUSH UNDER ANY CIRCUMSTANCES.
+ALL CODE, DATA, ARTIFACTS, AND DOCUMENTATION MUST REMAIN STRICTLY LOCAL ON DISK.
+================================================================================
 
 ALGORITHM SELECTION (FIXATED & FINALIZED):
 1. Tabular ML (Dissatisfaction Risk & Driver Attribution):
@@ -228,7 +231,7 @@ PHASE 5: SEMANTIC VECTOR STORE (CHROMADB RAG)
 ================================================================================
 PHASE 6: HYBRID EVIDENCE ASSEMBLER & GROQ COPILOT
 ================================================================================
-[ ] Task 6.1: Evidence Packet Assembler
+[x] Task 6.1: Evidence Packet Assembler
     - Implement `backend/app/services/evidence_assembler.py`:
       * For any selected issue ID:
         1. Fetch deterministic SQL KPIs (sample size, late rate, low review share, delta).
@@ -237,7 +240,7 @@ PHASE 6: HYBRID EVIDENCE ASSEMBLER & GROQ COPILOT
       * Package into a standardized Python dictionary (`EvidencePacket`).
     - Output: Bounded, un-hallucinated quantitative + qualitative evidence packet.
 
-[ ] Task 6.2: System Prompt & Pydantic Output Schema
+[x] Task 6.2: System Prompt & Pydantic Output Schema
     - Implement `backend/app/llm/schemas.py` defining Pydantic models:
       * `ActionPlanResponse`: summary, severity, ml_risk_assessment, quantitative_evidence,
         qualitative_evidence, recommended_actions (action, rationale, effort, expected_effect),
@@ -248,12 +251,13 @@ PHASE 6: HYBRID EVIDENCE ASSEMBLER & GROQ COPILOT
       * Format response as a strict JSON object.
     - Output: Robust schema and anti-hallucination system prompt.
 
-[ ] Task 6.3: Groq LLM Copilot Service
+[x] Task 6.3: Groq LLM Copilot Service
     - Implement `backend/app/services/copilot_service.py`:
       * Call Groq API (`llama-3.3-70b-versatile`) with `response_format={"type": "json_object"}`.
       * Validate response against Pydantic `ActionPlanResponse` schema.
       * Implement deterministic fallback in case of API timeout/rate limit.
-    - Output: Complete, end-to-end action plan generator returning verified JSON.
+      * Implement ad-hoc query support with `ask_copilot(issue_id, question)`.
+    - Output: Complete, end-to-end action plan generator returning verified JSON (5/5 Phase 6 unit tests passing, 24/24 total tests passing).
 
 ================================================================================
 PHASE 7: FASTAPI BACKEND API IMPLEMENTATION
