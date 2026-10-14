@@ -1,0 +1,114 @@
+================================================================================
+TRADEFORENSICS — AUDITABLE EVALUATION & BENCHMARK REPORT
+Team: RyzenShine | AMD Developer Hackathon ACT III (Track 3: Reinvent Commerce)
+Generated At: 2026-10-14 04:14:08 UTC
+Environment: Dedicated Python Virtual Environment (.venv) on Windows
+Dataset: Brazilian E-Commerce Public Dataset by Olist (100% Real Kaggle Data)
+================================================================================
+
+--------------------------------------------------------------------------------
+1. DETERMINISTIC EMPIRICAL METRICS (Zero AI Guesswork)
+--------------------------------------------------------------------------------
+Total Unique Orders:                  98,666
+Delivered Orders:                    96,470 (97.77%)
+Cancelled Orders:                    461
+Data Coverage Period:                2016-09-04 to 2018-09-03
+Global Baseline Late Delivery Rate:  8.11%
+Global Average Delay on Late Orders: 9.6 days
+Global Low-Score Share (<= 2 stars): 14.23%
+Global Average Review Score:         4.10 / 5.00
+
+EMPIRICAL CORRELATION: Late Delivery vs. Low Rating (<= 2 Stars):
+  * Low-Rating Rate when Delivered ON-TIME:  9.21%
+  * Low-Rating Rate when Delivered LATE:     52.98%
+  * Measured Dissatisfaction Risk Multiplier: 5.75x
+    (Delivering late multiplies the probability of a 1- or 2-star review by 5.75x)
+
+--------------------------------------------------------------------------------
+2. NLP PORTUGUESE COMPLAINT CLASSIFIER (TF-IDF + Logistic Regression)
+--------------------------------------------------------------------------------
+Total Portuguese Reviews with Text Comments: 40,162
+High-Confidence Labeled Evaluation Set:      25,800
+Held-Out Test Sample Size:                   5,160
+Overall Test Accuracy:                       97.00%
+Macro F1-Score:                              0.9414
+Weighted F1-Score:                           0.9703
+
+Class Name                Precision    Recall       F1-Score     Test Support
+-------------------------------------------------------------------------
+CATALOG_MISMATCH          0.8973       0.9486       0.9222       175         
+DAMAGED_DEFECTIVE         0.9037       0.9385       0.9208       260         
+DELIVERY_DELAY            0.9795       0.9681       0.9737       1,972       
+POSITIVE_SATISFACTION     0.9898       0.9763       0.9830       2,486       
+SERVICE_REFUND            0.8520       0.9700       0.9072       267         
+-------------------------------------------------------------------------
+
+Full Corpus Classification Distribution across all 40,162 customer comments:
+  * POSITIVE_SATISFACTION     17,877     ( 44.5%)
+  * DELIVERY_DELAY            11,906     ( 29.6%)
+  * SERVICE_REFUND            3,515      (  8.8%)
+  * OTHER_GENERAL             3,237      (  8.1%)
+  * DAMAGED_DEFECTIVE         2,252      (  5.6%)
+  * CATALOG_MISMATCH          1,340      (  3.3%)
+  * NO_COMMENT                35         (  0.1%)
+
+--------------------------------------------------------------------------------
+3. TABULAR ML DISSATISFACTION RISK MODEL (LightGBM Classifier)
+--------------------------------------------------------------------------------
+Feature Dimensions:                          16
+Total Analytical Records:                    98,666
+Held-Out Test Sample Size:                   19,734
+Test Set ROC-AUC Score:                      0.9071 (Target: > 0.85)
+Test Set Recall (Catches dissatisfied):      82.96% (Identified 2,312 out of 2,787 true negatives)
+Test Set Precision:                          51.76%
+Test Set F1-Score:                           0.6374
+
+Confusion Matrix (Test Set N=19,734):
+  True High-Satisfaction (TN): 14,792   | False Alarm (FP):           2,155   
+  Missed Friction (FN):        475      | Caught Dissatisfaction (TP): 2,312   
+
+Top Feature Importance Breakdown (% Gain):
+  * topic_POSITIVE_SATISFACTION     31.59%
+  * topic_NO_COMMENT                26.39%
+  * delay_days                      17.62%
+  * transit_days                    12.56%
+  * topic_DELIVERY_DELAY             2.84%
+  * item_count                       2.34%
+  * product_volume_cm3               1.27%
+  * topic_OTHER_GENERAL              1.17%
+  * total_freight                    1.01%
+  * total_price                      0.91%
+
+--------------------------------------------------------------------------------
+4. REAL SEGMENT DRIVER ATTRIBUTION AUDIT (Friction Points)
+--------------------------------------------------------------------------------
+Category: 'office_furniture'
+  * Orders Analyzed:              1,265
+  * Measured Low-Rating Share:    22.5% (Baseline: 14.2%)
+  * Model Predicted Risk Score:   43.6%
+  * Attributed Operational Drivers:
+    - Total Transit Duration                     (57.3% attribution)
+    - Shipping Delay (Days past deadline)        (29.1% attribution)
+    - Multi-Item Order Split Risk                (3.5% attribution)
+
+Category: 'audio'
+  * Orders Analyzed:              346
+  * Measured Low-Rating Share:    21.4% (Baseline: 14.2%)
+  * Model Predicted Risk Score:   36.5%
+  * Attributed Operational Drivers:
+    - Total Transit Duration                     (50.6% attribution)
+    - Shipping Delay (Days past deadline)        (33.5% attribution)
+    - Multi-Item Order Split Risk                (4.0% attribution)
+
+Category: 'fashion_male_clothing'
+  * Orders Analyzed:              112
+  * Measured Low-Rating Share:    25.9% (Baseline: 14.2%)
+  * Model Predicted Risk Score:   39.5%
+  * Attributed Operational Drivers:
+    - Total Transit Duration                     (50.7% attribution)
+    - Shipping Delay (Days past deadline)        (32.8% attribution)
+    - Multi-Item Order Split Risk                (4.1% attribution)
+
+================================================================================
+VERIFICATION STATUS: 100% REPRODUCIBLE & VERIFIED AGAINST TRAINED ARTIFACTS
+================================================================================

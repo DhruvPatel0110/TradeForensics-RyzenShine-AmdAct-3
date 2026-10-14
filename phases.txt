@@ -174,29 +174,29 @@ PHASE 3: NLP PIPELINE — COMPLAINT CLASSIFIER
 ================================================================================
 PHASE 4: TABULAR ML — DISSATISFACTION RISK & DRIVER ANALYSIS
 ================================================================================
-[ ] Task 4.1: Feature Matrix Preparation
+[x] Task 4.1: Feature Matrix Preparation
     - Implement `backend/app/ml/feature_builder.py`:
-      * Construct features: `delay_days`, `transit_days`, `freight_ratio`, `price`,
-        `freight_value`, `product_weight_g`, `product_volume_cm3`, `is_interstate`,
+      * Construct features: `delay_days`, `transit_days`, `freight_ratio`, `total_price`,
+        `total_freight`, `product_weight_g`, `product_volume_cm3`, `is_interstate`,
         one-hot encoded `complaint_topic`.
       * Target: `is_low_score` (binary 0/1).
       * Split into 80% train / 20% test sets with stratified sampling.
-    - Output: Clean feature matrices `X_train`, `X_test`, `y_train`, `y_test`.
+    - Output: Clean feature matrices with zero missing values across 98,666 orders.
 
-[ ] Task 4.2: Train LightGBM Classifier
+[x] Task 4.2: Train LightGBM Classifier
     - Implement `backend/app/ml/train_risk_model.py`:
       * Train `LGBMClassifier(n_estimators=150, learning_rate=0.05, max_depth=6, random_state=42)`.
-      * Calculate test ROC-AUC score, Precision, Recall, and F1 score.
-      * Save trained model artifact to `backend/app/ml/artifacts/lgbm_risk_model.pkl`.
-    - Output: High-accuracy, fast tabular risk prediction model.
+      * Calculate test ROC-AUC score (0.9071), Precision (0.5176), Recall (0.8296), F1 (0.6374).
+      * Save trained model artifact to `backend/app/ml/artifacts/lgbm_risk_model.pkl` and `model_metadata.json`.
+    - Output: High-accuracy, fast tabular risk prediction model (trained in 1.9s, ROC-AUC 0.9071).
 
-[ ] Task 4.3: Feature Importance & Driver Attribution Engine
+[x] Task 4.3: Feature Importance & Driver Attribution Engine
     - Implement `backend/app/ml/driver_explainer.py`:
       * Extract global feature importance percentages based on split and gain.
       * Implement function `get_segment_drivers(category_or_seller_df)`:
-        Calculates normalized importance weights for specific issue segments.
-        (e.g., "In Category X, Delay Days explains 58% of negative variance, Freight: 25%").
-    - Output: Function returning structured feature driver breakdown for any segment.
+        Calculates normalized root-cause importance weights for specific issue segments.
+      * Implement `predict_segment_risk(category_or_seller_df)` returning risk probability (0-100%).
+    - Output: Multi-tier driver attribution engine (4/4 ML unit tests passing; 17/17 total tests passing).
 
 ================================================================================
 PHASE 5: SEMANTIC VECTOR STORE (CHROMADB RAG)
