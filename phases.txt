@@ -262,34 +262,37 @@ PHASE 6: HYBRID EVIDENCE ASSEMBLER & GROQ COPILOT
 ================================================================================
 PHASE 7: FASTAPI BACKEND API IMPLEMENTATION
 ================================================================================
-[ ] Task 7.1: App Scaffolding & Middleware
+[x] Task 7.1: App Scaffolding & Middleware
     - Implement `backend/app/main.py`:
       * Setup FastAPI app with CORS middleware (allow local React dev server).
       * Lifespan handler to load analytical data, ML model, and ChromaDB client on startup.
-      * Endpoint `GET /api/health`: returns API status, dataset row count, LLM provider.
+      * Endpoint `GET /api/health`: returns API status, dataset row count (98,666), vector documents count (3,000), LLM provider.
     - Output: Running FastAPI application on `http://localhost:8000`.
 
-[ ] Task 7.2: Overview & Issues Endpoints
+[x] Task 7.2: Overview & Issues Endpoints
     - Implement `backend/app/api/overview.py`:
-      * `GET /api/overview`: Returns store-wide KPI cards, delay distributions.
+      * `GET /api/overview`: Returns store-wide KPI cards, delay distributions, top categories, and global ML drivers.
     - Implement `backend/app/api/issues.py`:
-      * `GET /api/issues`: Returns list of top detected operational friction points.
+      * `GET /api/issues`: Returns list of top detected operational friction points with filters.
+      * `GET /api/issues/{issue_id}`: Returns issue summary.
       * `GET /api/issues/{issue_id}/evidence`: Returns the assembled Evidence Packet.
     - Output: Operational dashboard data served via REST API.
 
-[ ] Task 7.3: Copilot Action Plan Endpoint
+[x] Task 7.3: Copilot Action Plan Endpoint
     - Implement `backend/app/api/copilot.py`:
       * `POST /api/action-plan`: Accepts issue ID, generates & returns the grounded plan.
       * `POST /api/ask`: Handles custom natural language questions over evidence packets.
     - Output: Working copilot endpoints ready for frontend consumption.
 
-[ ] Task 7.4: Backend Integration Smoke Tests
+[x] Task 7.4: Backend Integration Smoke Tests
     - Implement `backend/tests/test_api.py`:
-      * Test `/api/health` returns 200.
-      * Test `/api/overview` returns valid structure.
-      * Test `/api/issues` returns non-empty list.
-      * Test `/api/action-plan` returns valid schema.
-    - Output: All API endpoints verified and passing tests.
+      * Test `/api/health` returns 200 with pre-warmed metadata.
+      * Test `/api/overview` returns valid structure and delay distribution.
+      * Test `/api/issues` returns non-empty list of ranked friction points.
+      * Test `/api/issues/{issue_id}/evidence` returns complete EvidencePacket.
+      * Test `/api/action-plan` returns valid schema with grounded recommendations.
+      * Test `/api/ask` returns answer with cited metrics and next steps.
+    - Output: All 9 API integration tests passing (33/33 total tests passing across backend).
 
 ================================================================================
 PHASE 8: REACT + VITE FRONTEND DASHBOARD
