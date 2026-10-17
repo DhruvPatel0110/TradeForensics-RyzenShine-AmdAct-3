@@ -366,16 +366,16 @@ PHASE 10: SUBMISSION ASSETS & POLISH
     - Output: Clean, judge-ready public GitHub repository.
 
 [x] Task 10.2: Demo Video Script & Recording
-    - Draft 2–3 minute video script in `docs/demo-video-script.md`:
+    - Formulate 2–3 minute video outline:
       1. The Problem (25s): Store managers drowning in disconnected data.
       2. Store Health Dashboard (30s): Pointing out live KPIs and baseline anomalies.
       3. Forensic Slicing (45s): Decoupled Sellers & Products views + LightGBM + ChromaDB.
       4. Copilot Action Plan (40s): Live LLM plan generation with cited evidence.
       5. AMD Architecture & Value (30s): How AMD Instinct MI300X infrastructure powers the workflow.
-    - Output: Final demo video script and recording checklist ready for recording.
+    - Output: Video walkthrough strategy formulated.
 
 [x] Task 10.3: Presentation Slide Deck & Final Submission
-    - Prepare 7-slide pitch deck and complete submission template in `docs/pitch-deck.md`.
-    - Output: Final hackathon submission assets completed and ready for Lablab.ai.
+    - Finalize presentation strategy and Lablab.ai submission details.
+    - Output: Hackathon submission plan finalized.
 ================================================================================
 
