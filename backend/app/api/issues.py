@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/issues", tags=["Issues & Diagnosis"])
 
 @router.get("", response_model=Dict[str, Any])
 def list_issues(
-    limit: int = Query(default=15, ge=1, le=50, description="Max issues to return"),
+    limit: int = Query(default=30, ge=1, le=100, description="Max issues to return"),
     entity_type: Optional[str] = Query(default=None, description="Filter by 'category' or 'seller'"),
     issue_type: Optional[str] = Query(default=None, description="Filter by issue type")
 ):
@@ -20,7 +20,7 @@ def list_issues(
     Returns ranked operational friction points across categories and sellers
     sorted descending by mathematical severity score.
     """
-    all_issues = issue_detector.detect_top_issues(top_n=50)
+    all_issues = issue_detector.detect_top_issues(top_n=100, entity_type=entity_type)
 
     filtered = []
     for iss in all_issues:
@@ -40,7 +40,7 @@ def list_issues(
 @router.get("/{issue_id}", response_model=Dict[str, Any])
 def get_issue(issue_id: str):
     """Returns single issue summary and basic metrics."""
-    all_issues = issue_detector.detect_top_issues(top_n=50)
+    all_issues = issue_detector.detect_top_issues(top_n=200)
     for iss in all_issues:
         if iss["issue_id"] == issue_id:
             return iss

@@ -84,42 +84,7 @@ class GroqLLMClient(BaseLLMClient):
         return json.loads(content)
 
 
-class FireworksLLMClient(BaseLLMClient):
-    """Client for Fireworks AI inference running on AMD Instinct GPUs."""
-    
-    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
-        import httpx
-        self.api_key = api_key or settings.FIREWORKS_API_KEY
-        self.model = model or settings.FIREWORKS_MODEL
-        self.base_url = settings.FIREWORKS_BASE_URL
-        if not self.api_key:
-            raise ValueError("Fireworks API key is not configured in .env.")
-        self.headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
-
-    def generate_json(self, prompt: str, system_prompt: Optional[str] = None) -> Dict[str, Any]:
-        import httpx
-        default_system = (
-            "You are TradeForensics Copilot running on AMD Instinct hardware. "
-            "Respond strictly with valid JSON."
-        )
-        payload = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": system_prompt or default_system},
-                {"role": "user", "content": prompt}
-            ],
-            "response_format": {"type": "json_object"},
-            "temperature": 0.2
-        }
-        with httpx.Client(timeout=30.0) as client:
-            resp = client.post(f"{self.base_url}/chat/completions", json=payload, headers=self.headers)
-            resp.raise_for_status()
-            data = resp.json()
-            content = data["choices"][0]["message"]["content"]
-            return json.loads(content)
+from backend.app.llm.fireworks_client import FireworksLLMClient
 
 
 def get_llm_client() -> BaseLLMClient:
@@ -134,8 +99,9 @@ def get_llm_client() -> BaseLLMClient:
     elif provider == "fireworks":
         try:
             return FireworksLLMClient()
-        except ValueError as e:
+        except Exception as e:
             logger.warning(f"Fireworks client init failed ({e}), falling back to MockLLMClient.")
             return MockLLMClient()
     else:
         return MockLLMClient()
+

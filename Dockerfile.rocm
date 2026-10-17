@@ -1,0 +1,46 @@
+# ==============================================================================
+# TradeForensics — AMD ROCm 6.2 + vLLM Container Blueprint
+# Optimized for AMD Instinct™ MI300X / MI250 GPU Accelerators
+# ==============================================================================
+# Base Image: Official AMD ROCm PyTorch image for CDNA3 / CDNA2 architectures
+FROM rocm/pytorch:rocm6.2_ubuntu22.04_py3.10_pytorch_2.3.0
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    HSA_OVERRIDE_GFX_VERSION=11.0.0 \
+    ROCM_PATH=/opt/rocm \
+    HIP_VISIBLE_DEVICES=0 \
+    VLLM_TARGET_DEVICE=rocm
+
+WORKDIR /workspace
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    curl \
+    build-essential \
+    libnuma-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install vLLM compiled with AMD ROCm kernels
+RUN pip install --no-cache-dir \
+    vllm==0.5.4 \
+    --extra-index-url https://wheels.vllm.ai/rocm
+
+# Install TradeForensics application requirements
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application source code
+COPY backend/ ./backend/
+COPY data/ ./data/
+
+EXPOSE 8000
+EXPOSE 8001
+
+# Healthcheck to verify ROCm GPU driver and FastAPI server responsiveness
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD curl -f http://localhost:8000/api/health || exit 1
+
+# Launch FastAPI backend along with vLLM AMD ROCm inference runner
+CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
